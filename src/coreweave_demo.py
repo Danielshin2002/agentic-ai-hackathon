@@ -13,7 +13,7 @@ import httpx
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 
-from .agents import NewsAgent
+from .agents import ForecastAgent, NewsAgent
 from .agents.base import DEFAULT_MODEL
 from .models import Component, InventoryReport
 
@@ -27,6 +27,13 @@ SKU_QUERY_TERMS = {
     "CX7-400G": '("ConnectX-7" OR "400G adapter" OR "NVIDIA Networking")',
     "NVSWITCH-4": '("NVLink Switch" OR NVSwitch)',
     "CDU-120KW": '("cooling distribution unit" OR "data center liquid cooling")',
+    "GB200-NVL72": '("GB200 NVL72" OR "NVIDIA GB200" OR "Blackwell rack")',
+    "800G-OSFP": '("800G OSFP" OR "800G transceiver" OR "data center optics")',
+    "EPYC-9755": '("AMD EPYC 9755" OR "EPYC Turin" OR "server CPU")',
+    "4TB-NVME": '("enterprise NVMe SSD" OR "4TB NVMe" OR "data center SSD")',
+    "RETIMER-PCIE6": '("PCIe Gen6 retimer" OR "PCIe retimer" OR "high speed retimer")',
+    "PDU-415V": '("415V PDU" OR "rack PDU" OR "data center power distribution")',
+    "AOC-800G": '("800G active optical cable" OR "800G AOC" OR "high speed cable")',
 }
 
 
@@ -86,6 +93,30 @@ def ensure_news_tables(con: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def ensure_forecast_tables(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("CREATE SCHEMA IF NOT EXISTS demo_coreweave")
+    con.execute(
+        """
+        CREATE TABLE IF NOT EXISTS demo_coreweave.forecast_ratings (
+            run_id TEXT PRIMARY KEY,
+            created_at TIMESTAMP,
+            sku TEXT,
+            component_name TEXT,
+            horizon_days INTEGER,
+            expected_demand INTEGER,
+            var_95 INTEGER,
+            available_inventory INTEGER,
+            expected_shortfall INTEGER,
+            confidence DOUBLE,
+            yoy_growth_rate DOUBLE,
+            shortfall_risk BOOLEAN,
+            rationale TEXT,
+            forecast_payload JSON
+        )
+        """
+    )
+
+
 def _columns_to_dicts(cursor: duckdb.DuckDBPyConnection) -> list[dict[str, Any]]:
     columns = [col[0] for col in cursor.description]
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
@@ -132,6 +163,16 @@ def _inventory_summary(row: dict[str, Any]) -> dict[str, Any]:
         "status": status,
         "recommended_order_qty": recommended_order_qty,
     }
+
+
+def _available_inventory(summary: dict[str, Any]) -> int:
+    return max(
+        0,
+        int(summary["stock"])
+        + int(summary["inbound_units"])
+        - int(summary["allocated_units"])
+        - int(summary["reserved_units"]),
+    )
 
 
 def list_components() -> list[dict[str, Any]]:
@@ -375,6 +416,57 @@ def get_articles(sku: str, limit: int = 25, run_id: Optional[str] = None) -> lis
     return rows
 
 
+def get_deployment_stats(sku: str, limit: int = 30) -> list[dict[str, Any]]:
+    con = connect_motherduck()
+    rows = _columns_to_dicts(
+        con.execute(
+            """
+            SELECT observed_month AS date, units_deployed
+            FROM demo_coreweave.deployment_stats
+            WHERE sku = ?
+            ORDER BY observed_month DESC
+            LIMIT ?
+            """,
+            [sku, limit],
+        )
+    )
+    return list(reversed(rows))
+
+
+def get_forecast(sku: str, limit: int = 10) -> dict[str, Any]:
+    con = connect_motherduck()
+    ensure_forecast_tables(con)
+    forecasts = _columns_to_dicts(
+        con.execute(
+            """
+            SELECT
+                run_id,
+                created_at,
+                sku,
+                component_name,
+                horizon_days,
+                expected_demand,
+                var_95,
+                available_inventory,
+                expected_shortfall,
+                confidence,
+                yoy_growth_rate,
+                shortfall_risk,
+                rationale,
+                forecast_payload
+            FROM demo_coreweave.forecast_ratings
+            WHERE sku = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            [sku, limit],
+        )
+    )
+    for forecast in forecasts:
+        forecast["forecast_payload"] = _parse_json(forecast["forecast_payload"])
+    return {"latest": forecasts[0] if forecasts else None, "forecasts": forecasts}
+
+
 def select_component(sku: Optional[str] = None) -> tuple[Component, InventoryReport]:
     con = connect_motherduck()
     if sku:
@@ -457,6 +549,13 @@ def select_component(sku: Optional[str] = None) -> tuple[Component, InventoryRep
         ),
     )
     return component, inventory
+
+
+def select_component_with_inventory(sku: str) -> tuple[Component, InventoryReport, dict[str, Any]]:
+    component, inventory = select_component(sku)
+    inventory_payload = get_inventory(component.sku, limit=1)
+    latest = inventory_payload["latest"]
+    return component, inventory, latest
 
 
 def build_gdelt_query(sku: str, component_name: str) -> str:
@@ -598,6 +697,40 @@ def persist_rating(
     )
 
 
+def persist_forecast(
+    con: duckdb.DuckDBPyConnection,
+    run_id: str,
+    created_at: datetime,
+    component: Component,
+    forecast_payload: dict[str, Any],
+    available_inventory: int,
+    expected_shortfall: int,
+) -> None:
+    con.execute(
+        """
+        INSERT INTO demo_coreweave.forecast_ratings VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+        """,
+        [
+            run_id,
+            created_at,
+            component.sku,
+            component.name,
+            forecast_payload["horizon_days"],
+            forecast_payload["expected_demand"],
+            forecast_payload["var_95"],
+            available_inventory,
+            expected_shortfall,
+            forecast_payload["confidence"],
+            forecast_payload["yoy_growth_rate"],
+            forecast_payload["shortfall_risk"],
+            forecast_payload["rationale"],
+            json.dumps(forecast_payload),
+        ],
+    )
+
+
 async def ingest_news_risk(
     sku: Optional[str] = None,
     days: int = 1,
@@ -656,4 +789,54 @@ async def ingest_news_risk(
         "supply_adjustment_factor": rating.supply_adjustment_factor,
         "rating": rating_payload,
         "persisted": "demo_coreweave.news_risk_ratings",
+    }
+
+
+async def run_forecast(
+    sku: str,
+    horizon_days: Optional[int] = None,
+    deployment_limit: int = 30,
+) -> dict[str, Any]:
+    if deployment_limit < 2 or deployment_limit > 120:
+        raise ValueError("deployment_limit must be between 2 and 120")
+    if horizon_days is not None and horizon_days < 1:
+        raise ValueError("horizon_days must be at least 1")
+
+    con = connect_motherduck()
+    ensure_forecast_tables(con)
+    component, _inventory, latest_inventory = select_component_with_inventory(sku)
+    deployment_stats = get_deployment_stats(component.sku, limit=deployment_limit)
+    if not deployment_stats:
+        raise ValueError(f"No deployment stats found for SKU {component.sku!r}")
+
+    client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+    forecast = await ForecastAgent(client, os.getenv("CLAUDE_MODEL", DEFAULT_MODEL)).analyze(
+        component,
+        deployment_stats,
+        horizon_days=horizon_days,
+    )
+    forecast_payload = forecast.model_dump(mode="json")
+    available_inventory = _available_inventory(latest_inventory)
+    expected_shortfall = max(0, int(forecast.var_95) - available_inventory)
+    forecast_payload["available_inventory"] = available_inventory
+    forecast_payload["expected_shortfall"] = expected_shortfall
+
+    now = datetime.now(UTC).replace(microsecond=0)
+    run_id = f"{component.sku}-forecast-{now.strftime('%Y%m%d%H%M%S')}"
+    persist_forecast(
+        con,
+        run_id,
+        now,
+        component,
+        forecast_payload,
+        available_inventory,
+        expected_shortfall,
+    )
+
+    return {
+        "run_id": run_id,
+        "selected_sku": component.sku,
+        "deployment_points": len(deployment_stats),
+        "forecast": forecast_payload,
+        "persisted": "demo_coreweave.forecast_ratings",
     }
