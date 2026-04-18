@@ -241,12 +241,31 @@ Endpoints:
 | GET    | `/decisions`      | Recent persisted decisions (optional `?sku=`). |
 | GET    | `/risk/{sku}`     | Risk trendline points for charting.            |
 
+CoreWeave demo endpoints for Lovable:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/coreweave/components` | Component list with latest inventory and latest news-risk summary. |
+| GET | `/coreweave/inventory/{sku}` | Latest inventory summary plus stock history. Optional `?limit=90`. |
+| GET | `/coreweave/suppliers/{sku}` | Supplier candidates ranked by composite score. |
+| GET | `/coreweave/news-risk/{sku}` | Latest and recent news-risk ratings. Optional `?limit=10`. |
+| GET | `/coreweave/articles/{sku}` | Recent persisted GDELT articles. Optional `?limit=25&run_id=...`. |
+| POST | `/coreweave/ingest-news` | Refresh GDELT news, score with `NewsAgent`, and persist the rating. |
+
 Example:
 
 ```bash
 curl -X POST http://localhost:8000/decide \
   -H 'Content-Type: application/json' \
   -d '{"query": "Should we buy more HBM3E now?"}'
+```
+
+CoreWeave news refresh example:
+
+```bash
+curl -X POST http://localhost:8000/coreweave/ingest-news \
+  -H 'Content-Type: application/json' \
+  -d '{"sku": "HBM3E", "days": 1, "max_records": 10}'
 ```
 
 ---
