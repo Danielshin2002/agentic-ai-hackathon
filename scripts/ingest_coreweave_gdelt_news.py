@@ -39,6 +39,10 @@ SKU_QUERY_TERMS = {
     "CX7-400G": '("ConnectX-7" OR "400G adapter" OR "NVIDIA Networking")',
     "NVSWITCH-4": '("NVLink Switch" OR NVSwitch)',
     "CDU-120KW": '("cooling distribution unit" OR "data center liquid cooling")',
+    "GB200-NVL72": '("GB200 NVL72" OR "NVIDIA GB200" OR "Blackwell rack")',
+    "800G-OSFP": '("800G OSFP" OR "800G transceiver" OR "data center optics")',
+    "EPYC-9755": '("AMD EPYC 9755" OR "EPYC Turin" OR "server CPU")',
+    "4TB-NVME": '("enterprise NVMe SSD" OR "4TB NVMe" OR "data center SSD")',
 }
 
 

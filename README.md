@@ -60,6 +60,36 @@ Inventory Agent  ── sequential, runs first
 
 ---
 
+## Tech stack
+
+| Layer | Technology | How it is used |
+|-------|------------|----------------|
+| Language | Python 3.11+ | Agent orchestration, CLI scripts, FastAPI backend, and data seeding. |
+| API backend | FastAPI + Uvicorn | REST API for the dashboard, including `/decide` and `/coreweave/*` endpoints. |
+| AI model | Anthropic Claude | JSON-structured Inventory, News, Supplier, Forecast, and Aggregator agents. |
+| Agent orchestration | Native `asyncio.gather` | Runs independent agents in parallel after inventory context is available. |
+| Data validation | Pydantic | Shared schemas for components, reports, decisions, and API request bodies. |
+| Analytics database | MotherDuck | Shared cloud DuckDB database for decisions, risk ratings, articles, and demo source tables. |
+| Local fallback database | DuckDB | Local `.local.duckdb` persistence when MotherDuck credentials are not set. |
+| News source | GDELT DOC 2.0 API | Live public news fetch for component-specific supply-chain risk. No API key required. |
+| HTTP client | HTTPX | Async GDELT requests and retry/backoff handling. |
+| Dashboard | Lovable | Frontend/dashboard builder that calls the FastAPI endpoints. |
+| Local tunneling | ngrok | Exposes local FastAPI server to Lovable during demos. |
+| Configuration | `.env` + `python-dotenv` | Loads Claude and MotherDuck credentials without committing secrets. |
+
+For the current CoreWeave demo path:
+
+```text
+Lovable dashboard
+    -> FastAPI /coreweave/* endpoints
+    -> MotherDuck demo_coreweave tables
+    -> GDELT live news fetch
+    -> Claude NewsAgent risk score
+    -> MotherDuck news_risk_ratings + gdelt_articles
+```
+
+---
+
 ## Repo structure
 
 ```
@@ -145,10 +175,10 @@ Created tables:
 
 | Table | Purpose |
 |-------|---------|
-| `demo_coreweave.components` | Simulated CoreWeave-relevant parts such as `HBM3E`, `B200-SXM`, `H100-SXM`, `CX7-400G`, `NVSWITCH-4`, and `CDU-120KW`. |
-| `demo_coreweave.inventory_snapshots` | 90-day synthetic stock history, latest stock, inbound units, allocated units, and facility/region. |
+| `demo_coreweave.components` | Simulated CoreWeave-relevant parts such as `HBM3E`, `B200-SXM`, `H100-SXM`, `CX7-400G`, `NVSWITCH-4`, `CDU-120KW`, `GB200-NVL72`, `800G-OSFP`, `EPYC-9755`, and `4TB-NVME`. |
+| `demo_coreweave.inventory_snapshots` | 150-day synthetic stock history, latest stock, inbound units, allocated units, and facility/region. |
 | `demo_coreweave.supplier_candidates` | Simulated supplier alternatives with compatibility, capacity, timeline, geography, and recommendation. |
-| `demo_coreweave.deployment_stats` | 18 months of synthetic deployment/demand history. |
+| `demo_coreweave.deployment_stats` | 30 months of synthetic deployment/demand history. |
 
 ### Live GDELT news risk
 

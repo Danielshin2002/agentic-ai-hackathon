@@ -15,6 +15,10 @@ import duckdb
 from dotenv import load_dotenv
 
 
+INVENTORY_HISTORY_DAYS = 150
+DEPLOYMENT_HISTORY_MONTHS = 30
+
+
 COMPONENTS = [
     {
         "sku": "HBM3E",
@@ -87,6 +91,54 @@ COMPONENTS = [
         "unit_cost_usd": 78000.0,
         "coreweave_use_case": "High-density liquid-cooled GPU racks",
         "criticality": "high",
+    },
+    {
+        "sku": "GB200-NVL72",
+        "component_name": "NVIDIA GB200 NVL72 rack assembly",
+        "category": "rack_scale_system",
+        "current_stock": 72,
+        "daily_burn_rate": 2.4,
+        "lead_time_days": 140,
+        "safe_threshold_days": 90,
+        "unit_cost_usd": 3100000.0,
+        "coreweave_use_case": "Rack-scale Blackwell cluster expansion",
+        "criticality": "critical",
+    },
+    {
+        "sku": "800G-OSFP",
+        "component_name": "800G OSFP optical transceiver",
+        "category": "networking",
+        "current_stock": 9200,
+        "daily_burn_rate": 245.0,
+        "lead_time_days": 63,
+        "safe_threshold_days": 55,
+        "unit_cost_usd": 820.0,
+        "coreweave_use_case": "High-radix fabric links for dense GPU clusters",
+        "criticality": "high",
+    },
+    {
+        "sku": "EPYC-9755",
+        "component_name": "AMD EPYC 9755 host CPU",
+        "category": "server_cpu",
+        "current_stock": 2600,
+        "daily_burn_rate": 48.0,
+        "lead_time_days": 49,
+        "safe_threshold_days": 45,
+        "unit_cost_usd": 11800.0,
+        "coreweave_use_case": "GPU server host processors and control-plane nodes",
+        "criticality": "medium",
+    },
+    {
+        "sku": "4TB-NVME",
+        "component_name": "4TB enterprise NVMe SSD",
+        "category": "storage",
+        "current_stock": 18600,
+        "daily_burn_rate": 420.0,
+        "lead_time_days": 35,
+        "safe_threshold_days": 40,
+        "unit_cost_usd": 390.0,
+        "coreweave_use_case": "Local scratch storage for training and inference nodes",
+        "criticality": "medium",
     },
 ]
 
@@ -236,6 +288,102 @@ SUPPLIER_CANDIDATES = [
         "recommendation": "qualify",
         "notes": "Good infrastructure diversification; facility commissioning checklist differs.",
     },
+    {
+        "sku": "GB200-NVL72",
+        "supplier_name": "NVIDIA direct rack allocation",
+        "supplier_role": "primary",
+        "technical_compat": 1.0,
+        "qualification_timeline_days": 0,
+        "available_capacity_units": 34,
+        "geographic_region": "USA/Taiwan",
+        "composite_score": 0.78,
+        "recommendation": "activate",
+        "notes": "Only validated new-build source; availability depends on rack-scale allocation timing.",
+    },
+    {
+        "sku": "GB200-NVL72",
+        "supplier_name": "OEM integration reserve pool",
+        "supplier_role": "contingency",
+        "technical_compat": 0.91,
+        "qualification_timeline_days": 45,
+        "available_capacity_units": 12,
+        "geographic_region": "USA/Mexico",
+        "composite_score": 0.59,
+        "recommendation": "qualify",
+        "notes": "Useful for schedule rescue, but integration windows and rack acceptance tests are tighter.",
+    },
+    {
+        "sku": "800G-OSFP",
+        "supplier_name": "Coherent optics",
+        "supplier_role": "primary",
+        "technical_compat": 0.96,
+        "qualification_timeline_days": 21,
+        "available_capacity_units": 6800,
+        "geographic_region": "USA/Thailand",
+        "composite_score": 0.82,
+        "recommendation": "activate",
+        "notes": "Strong fit for short-reach data-center optics; watch packaging capacity and lead times.",
+    },
+    {
+        "sku": "800G-OSFP",
+        "supplier_name": "Lumentum optics",
+        "supplier_role": "alternate",
+        "technical_compat": 0.89,
+        "qualification_timeline_days": 60,
+        "available_capacity_units": 4200,
+        "geographic_region": "USA/Asia",
+        "composite_score": 0.68,
+        "recommendation": "qualify",
+        "notes": "Good second source for 800G links; firmware compatibility testing still required.",
+    },
+    {
+        "sku": "EPYC-9755",
+        "supplier_name": "AMD enterprise channel",
+        "supplier_role": "primary",
+        "technical_compat": 1.0,
+        "qualification_timeline_days": 0,
+        "available_capacity_units": 1800,
+        "geographic_region": "USA/Taiwan",
+        "composite_score": 0.84,
+        "recommendation": "activate",
+        "notes": "Validated host CPU path; watch substrate allocation during server platform ramps.",
+    },
+    {
+        "sku": "EPYC-9755",
+        "supplier_name": "Tier-1 server OEM buffer",
+        "supplier_role": "secondary",
+        "technical_compat": 0.98,
+        "qualification_timeline_days": 14,
+        "available_capacity_units": 520,
+        "geographic_region": "USA",
+        "composite_score": 0.71,
+        "recommendation": "activate",
+        "notes": "Smaller buffer but fast to deploy for validated server designs.",
+    },
+    {
+        "sku": "4TB-NVME",
+        "supplier_name": "Samsung Semiconductor",
+        "supplier_role": "primary",
+        "technical_compat": 0.97,
+        "qualification_timeline_days": 14,
+        "available_capacity_units": 16000,
+        "geographic_region": "South Korea/USA",
+        "composite_score": 0.86,
+        "recommendation": "activate",
+        "notes": "High-volume supply and good endurance match for local scratch workloads.",
+    },
+    {
+        "sku": "4TB-NVME",
+        "supplier_name": "Solidigm enterprise SSD",
+        "supplier_role": "alternate",
+        "technical_compat": 0.91,
+        "qualification_timeline_days": 45,
+        "available_capacity_units": 9800,
+        "geographic_region": "USA/Asia",
+        "composite_score": 0.73,
+        "recommendation": "qualify",
+        "notes": "Good capacity diversification; thermal and firmware telemetry need platform validation.",
+    },
 ]
 
 
@@ -258,13 +406,13 @@ def _inventory_rows(now: datetime) -> list[tuple]:
         lead = component["lead_time_days"]
         region = "US-East" if component_index % 2 == 0 else "US-Central"
         facility = f"CWV-DEMO-{component_index + 1:02d}"
-        start_stock = int(current_stock + burn * 90 * 0.72)
+        start_stock = int(current_stock + burn * INVENTORY_HISTORY_DAYS * 0.72)
 
-        for days_ago in range(90, -1, -1):
+        for days_ago in range(INVENTORY_HISTORY_DAYS, -1, -1):
             observed_at = now - timedelta(days=days_ago)
-            days_elapsed = 90 - days_ago
+            days_elapsed = INVENTORY_HISTORY_DAYS - days_ago
             seasonal_noise = int(math.sin(days_elapsed / 5.0 + component_index) * burn * 0.45)
-            replenishment = int(burn * 12) if days_elapsed in {28, 57, 78} else 0
+            replenishment = int(burn * 12) if days_elapsed in {28, 57, 78, 116, 142} else 0
             allocated_units = max(0, int(burn * (0.65 + (component_index % 3) * 0.08)))
             inbound_units = int(burn * lead * 0.18) if days_ago <= lead else int(burn * lead * 0.08)
             stock = max(
@@ -296,9 +444,11 @@ def _deployment_rows(now: datetime) -> list[tuple]:
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     for component_index, component in enumerate(COMPONENTS):
         burn = component["daily_burn_rate"]
-        for months_ago in range(18, 0, -1):
+        for months_ago in range(DEPLOYMENT_HISTORY_MONTHS, 0, -1):
             observed_month = month_start - timedelta(days=30 * months_ago)
-            growth_factor = 1.0 + 0.32 * (18 - months_ago) / 17
+            growth_factor = 1.0 + 0.38 * (DEPLOYMENT_HISTORY_MONTHS - months_ago) / (
+                DEPLOYMENT_HISTORY_MONTHS - 1
+            )
             cyclic = 1.0 + 0.08 * math.sin(months_ago + component_index)
             units_deployed = int(burn * 30 * growth_factor * cyclic)
             rows.append(
