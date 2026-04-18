@@ -279,8 +279,10 @@ CoreWeave demo endpoints for Lovable:
 | GET | `/coreweave/inventory/{sku}` | Latest inventory summary plus stock history. Optional `?limit=90`. |
 | GET | `/coreweave/suppliers/{sku}` | Supplier candidates ranked by composite score. |
 | GET | `/coreweave/news-risk/{sku}` | Latest and recent news-risk ratings. Optional `?limit=10`. |
+| GET | `/coreweave/forecast/{sku}` | Latest and recent Claude forecast ratings. Optional `?limit=10`. |
 | GET | `/coreweave/articles/{sku}` | Recent persisted GDELT articles. Optional `?limit=25&run_id=...`. |
 | POST | `/coreweave/ingest-news` | Refresh GDELT news, score with `NewsAgent`, and persist the rating. |
+| POST | `/coreweave/forecast` | Run `ForecastAgent`, compute expected shortfall, and persist the forecast. |
 
 Example:
 
@@ -297,6 +299,25 @@ curl -X POST http://localhost:8000/coreweave/ingest-news \
   -H 'Content-Type: application/json' \
   -d '{"sku": "HBM3E", "days": 1, "max_records": 10}'
 ```
+
+CoreWeave forecast refresh example:
+
+```bash
+curl -X POST http://localhost:8000/coreweave/forecast \
+  -H 'Content-Type: application/json' \
+  -d '{"sku": "HBM3E", "deployment_limit": 30}'
+```
+
+The forecast endpoint persists rows to `demo_coreweave.forecast_ratings` with:
+
+- `expected_demand`
+- `var_95`
+- `available_inventory`
+- `expected_shortfall`
+- `confidence`
+- `yoy_growth_rate`
+- `shortfall_risk`
+- `rationale`
 
 ---
 

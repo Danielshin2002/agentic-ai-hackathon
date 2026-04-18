@@ -56,6 +56,12 @@ class CoreWeaveNewsIngestRequest(BaseModel):
     query: Optional[str] = None
 
 
+class CoreWeaveForecastRequest(BaseModel):
+    sku: str
+    horizon_days: Optional[int] = Field(default=None, ge=1)
+    deployment_limit: int = Field(default=30, ge=2, le=120)
+
+
 def _coreweave_error(exc: Exception) -> HTTPException:
     message = str(exc)
     if isinstance(exc, ValueError):
@@ -119,6 +125,14 @@ def coreweave_news_risk(sku: str, limit: int = 10) -> dict:
         raise _coreweave_error(exc) from exc
 
 
+@app.get("/coreweave/forecast/{sku}")
+def coreweave_forecast(sku: str, limit: int = 10) -> dict:
+    try:
+        return coreweave_demo.get_forecast(sku, limit=limit)
+    except Exception as exc:
+        raise _coreweave_error(exc) from exc
+
+
 @app.get("/coreweave/articles/{sku}")
 def coreweave_articles(sku: str, limit: int = 25, run_id: Optional[str] = None) -> list[dict]:
     try:
@@ -135,6 +149,18 @@ async def coreweave_ingest_news(body: CoreWeaveNewsIngestRequest) -> dict:
             days=body.days,
             max_records=body.max_records,
             query=body.query,
+        )
+    except Exception as exc:
+        raise _coreweave_error(exc) from exc
+
+
+@app.post("/coreweave/forecast")
+async def coreweave_run_forecast(body: CoreWeaveForecastRequest) -> dict:
+    try:
+        return await coreweave_demo.run_forecast(
+            sku=body.sku,
+            horizon_days=body.horizon_days,
+            deployment_limit=body.deployment_limit,
         )
     except Exception as exc:
         raise _coreweave_error(exc) from exc
