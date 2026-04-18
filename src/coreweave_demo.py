@@ -31,6 +31,9 @@ SKU_QUERY_TERMS = {
     "800G-OSFP": '("800G OSFP" OR "800G transceiver" OR "data center optics")',
     "EPYC-9755": '("AMD EPYC 9755" OR "EPYC Turin" OR "server CPU")',
     "4TB-NVME": '("enterprise NVMe SSD" OR "4TB NVMe" OR "data center SSD")',
+    "RETIMER-PCIE6": '("PCIe Gen6 retimer" OR "PCIe retimer" OR "high speed retimer")',
+    "PDU-415V": '("415V PDU" OR "rack PDU" OR "data center power distribution")',
+    "AOC-800G": '("800G active optical cable" OR "800G AOC" OR "high speed cable")',
 }
 
 

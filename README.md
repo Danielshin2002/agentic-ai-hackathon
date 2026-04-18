@@ -175,8 +175,8 @@ Created tables:
 
 | Table | Purpose |
 |-------|---------|
-| `demo_coreweave.components` | Simulated CoreWeave-relevant parts such as `HBM3E`, `B200-SXM`, `H100-SXM`, `CX7-400G`, `NVSWITCH-4`, `CDU-120KW`, `GB200-NVL72`, `800G-OSFP`, `EPYC-9755`, and `4TB-NVME`. |
-| `demo_coreweave.inventory_snapshots` | 150-day synthetic stock history, latest stock, inbound units, allocated units, and facility/region. |
+| `demo_coreweave.components` | Simulated CoreWeave-relevant parts such as `HBM3E`, `B200-SXM`, `H100-SXM`, `CX7-400G`, `NVSWITCH-4`, `CDU-120KW`, `GB200-NVL72`, `800G-OSFP`, `EPYC-9755`, `4TB-NVME`, `RETIMER-PCIE6`, `PDU-415V`, and `AOC-800G`. |
+| `demo_coreweave.inventory_snapshots` | 150-day synthetic stock history, including both steady and volatile inventory trajectories, latest stock, inbound units, allocated units, and facility/region. |
 | `demo_coreweave.supplier_candidates` | Simulated supplier alternatives with compatibility, capacity, timeline, geography, and recommendation. |
 | `demo_coreweave.deployment_stats` | 30 months of synthetic deployment/demand history. |
 

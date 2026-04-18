@@ -140,6 +140,45 @@ COMPONENTS = [
         "coreweave_use_case": "Local scratch storage for training and inference nodes",
         "criticality": "medium",
     },
+    {
+        "sku": "RETIMER-PCIE6",
+        "component_name": "PCIe Gen6 retimer module",
+        "category": "server_board_component",
+        "current_stock": 3400,
+        "daily_burn_rate": 95.0,
+        "lead_time_days": 77,
+        "safe_threshold_days": 60,
+        "unit_cost_usd": 185.0,
+        "coreweave_use_case": "High-speed signal integrity for GPU server motherboards",
+        "criticality": "high",
+        "inventory_profile": "volatile",
+    },
+    {
+        "sku": "PDU-415V",
+        "component_name": "415V intelligent rack PDU",
+        "category": "datacenter_infrastructure",
+        "current_stock": 260,
+        "daily_burn_rate": 7.8,
+        "lead_time_days": 91,
+        "safe_threshold_days": 70,
+        "unit_cost_usd": 3200.0,
+        "coreweave_use_case": "Power distribution for high-density GPU rack deployments",
+        "criticality": "high",
+        "inventory_profile": "volatile",
+    },
+    {
+        "sku": "AOC-800G",
+        "component_name": "800G active optical cable",
+        "category": "networking",
+        "current_stock": 11800,
+        "daily_burn_rate": 285.0,
+        "lead_time_days": 58,
+        "safe_threshold_days": 50,
+        "unit_cost_usd": 610.0,
+        "coreweave_use_case": "Short-reach GPU cluster fabric cabling",
+        "criticality": "medium",
+        "inventory_profile": "volatile",
+    },
 ]
 
 
@@ -384,6 +423,78 @@ SUPPLIER_CANDIDATES = [
         "recommendation": "qualify",
         "notes": "Good capacity diversification; thermal and firmware telemetry need platform validation.",
     },
+    {
+        "sku": "RETIMER-PCIE6",
+        "supplier_name": "Astera Labs",
+        "supplier_role": "primary",
+        "technical_compat": 0.98,
+        "qualification_timeline_days": 21,
+        "available_capacity_units": 2400,
+        "geographic_region": "USA/Taiwan",
+        "composite_score": 0.81,
+        "recommendation": "activate",
+        "notes": "Validated retimer path; delivery tends to arrive in uneven lots around board-build schedules.",
+    },
+    {
+        "sku": "RETIMER-PCIE6",
+        "supplier_name": "Parade Technologies",
+        "supplier_role": "alternate",
+        "technical_compat": 0.84,
+        "qualification_timeline_days": 75,
+        "available_capacity_units": 1600,
+        "geographic_region": "Taiwan",
+        "composite_score": 0.61,
+        "recommendation": "qualify",
+        "notes": "Useful backup, but firmware and signal-integrity validation can delay activation.",
+    },
+    {
+        "sku": "PDU-415V",
+        "supplier_name": "Schneider Electric",
+        "supplier_role": "primary",
+        "technical_compat": 0.95,
+        "qualification_timeline_days": 35,
+        "available_capacity_units": 170,
+        "geographic_region": "USA/Mexico",
+        "composite_score": 0.74,
+        "recommendation": "activate",
+        "notes": "Strong fit for high-density rooms; availability swings with data-center construction cycles.",
+    },
+    {
+        "sku": "PDU-415V",
+        "supplier_name": "Eaton intelligent power",
+        "supplier_role": "alternate",
+        "technical_compat": 0.88,
+        "qualification_timeline_days": 70,
+        "available_capacity_units": 120,
+        "geographic_region": "USA/EU",
+        "composite_score": 0.63,
+        "recommendation": "qualify",
+        "notes": "Good contingency supplier; monitoring integration and breaker configuration require checks.",
+    },
+    {
+        "sku": "AOC-800G",
+        "supplier_name": "Molex optical interconnects",
+        "supplier_role": "primary",
+        "technical_compat": 0.93,
+        "qualification_timeline_days": 28,
+        "available_capacity_units": 7400,
+        "geographic_region": "USA/Asia",
+        "composite_score": 0.79,
+        "recommendation": "activate",
+        "notes": "Good validated source; inventory can move sharply when multiple cluster halls cable at once.",
+    },
+    {
+        "sku": "AOC-800G",
+        "supplier_name": "Amphenol high-speed cable",
+        "supplier_role": "alternate",
+        "technical_compat": 0.87,
+        "qualification_timeline_days": 55,
+        "available_capacity_units": 5100,
+        "geographic_region": "USA/China",
+        "composite_score": 0.66,
+        "recommendation": "qualify",
+        "notes": "Solid second source for short-reach cabling; connector sourcing volatility is the key risk.",
+    },
 ]
 
 
@@ -404,21 +515,51 @@ def _inventory_rows(now: datetime) -> list[tuple]:
         current_stock = component["current_stock"]
         burn = component["daily_burn_rate"]
         lead = component["lead_time_days"]
+        profile = component.get("inventory_profile", "steady")
         region = "US-East" if component_index % 2 == 0 else "US-Central"
         facility = f"CWV-DEMO-{component_index + 1:02d}"
         start_stock = int(current_stock + burn * INVENTORY_HISTORY_DAYS * 0.72)
+        volatile_adjustment = 0
 
         for days_ago in range(INVENTORY_HISTORY_DAYS, -1, -1):
             observed_at = now - timedelta(days=days_ago)
             days_elapsed = INVENTORY_HISTORY_DAYS - days_ago
-            seasonal_noise = int(math.sin(days_elapsed / 5.0 + component_index) * burn * 0.45)
-            replenishment = int(burn * 12) if days_elapsed in {28, 57, 78, 116, 142} else 0
+            if profile == "volatile":
+                shock_events = {
+                    16: -18,
+                    27: 24,
+                    43: -15,
+                    61: -11,
+                    73: 31,
+                    94: -22,
+                    112: 18,
+                    131: -17,
+                    143: 26,
+                }
+                volatile_adjustment += int(burn * shock_events.get(days_elapsed, 0))
+                seasonal_noise = int(
+                    math.sin(days_elapsed / 2.7 + component_index) * burn * 2.1
+                    + math.cos(days_elapsed / 8.0) * burn * 1.4
+                )
+                replenishment = int(burn * 16) if days_elapsed in {27, 73, 112, 143} else 0
+                drawdown_rate = 0.58 + 0.18 * math.sin(days_elapsed / 11.0)
+                stock = max(
+                    0,
+                    start_stock
+                    - int(days_elapsed * burn * drawdown_rate)
+                    + volatile_adjustment
+                    + seasonal_noise
+                    + replenishment,
+                )
+            else:
+                seasonal_noise = int(math.sin(days_elapsed / 5.0 + component_index) * burn * 0.45)
+                replenishment = int(burn * 12) if days_elapsed in {28, 57, 78, 116, 142} else 0
+                stock = max(
+                    0,
+                    start_stock - int(days_elapsed * burn * 0.72) + seasonal_noise + replenishment,
+                )
             allocated_units = max(0, int(burn * (0.65 + (component_index % 3) * 0.08)))
             inbound_units = int(burn * lead * 0.18) if days_ago <= lead else int(burn * lead * 0.08)
-            stock = max(
-                0,
-                start_stock - int(days_elapsed * burn * 0.72) + seasonal_noise + replenishment,
-            )
             if days_ago == 0:
                 stock = current_stock
 
