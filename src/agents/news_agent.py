@@ -21,8 +21,11 @@ You receive:
 - a batch of recent news headlines + snippets relevant to the component's supply chain
 
 Responsibilities
-1. Choose a lookback window: window_days = clamp(2 * lead_time_days, 14, 180).
-   Longer lead times → longer historical memory.
+1. Choose a lookback window:
+   - If the input includes requested_lookback_days, set window_days to that
+     value and score only the supplied live-news batch.
+   - Otherwise, window_days = clamp(2 * lead_time_days, 14, 180).
+     Longer lead times → longer historical memory.
 2. For each headline, judge supply-side impact (0-100).
 3. Compute a VaR-style aggregate risk_score (0=benign, 100=severe disruption).
    Weight recent events higher than older ones; weight high-impact outliers more
@@ -54,12 +57,14 @@ class NewsAgent(BaseAgent):
         component: Component,
         inventory: InventoryReport,
         headlines: Optional[list[dict]] = None,
+        requested_lookback_days: Optional[int] = None,
     ) -> NewsRiskReport:
         user = json.dumps(
             {
                 "component": component.model_dump(),
                 "inventory": inventory.model_dump(),
                 "headlines": headlines or [],
+                "requested_lookback_days": requested_lookback_days,
             },
             default=str,
         )
