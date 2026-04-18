@@ -180,6 +180,49 @@ Created tables:
 | `demo_coreweave.supplier_candidates` | Simulated supplier alternatives with compatibility, capacity, timeline, geography, and recommendation. |
 | `demo_coreweave.deployment_stats` | 30 months of synthetic deployment/demand history. |
 
+### Company data requirements
+
+For a real company to use this tool, their internal dataset should map to the
+same core concepts as the demo schema. The system does not require these exact
+table names, but it does need consistent component IDs/SKUs across inventory,
+supplier, demand, and decision data.
+
+Minimum viable dataset:
+
+| Data area | Required fields | Why it matters |
+|-----------|-----------------|----------------|
+| Component catalog | `sku`, `component_name`, `category`, `unit_cost`, `lead_time_days`, `safe_threshold_days`, `criticality` | Defines what the agents are evaluating and how urgently shortages matter. |
+| Inventory snapshots | `sku`, `observed_at`, `stock_on_hand`, `inbound_units`, `allocated_units`, `reserved_units`, `facility`, `region` | Powers days-of-coverage, available inventory, volatile trajectory detection, and reorder urgency. |
+| Supplier candidates | `sku`, `supplier_name`, `supplier_role`, `technical_compat`, `qualification_timeline_days`, `available_capacity_units`, `geographic_region`, `notes` | Lets the Supplier Agent rank alternatives and recommend activate/qualify/avoid actions. |
+| Demand/deployment history | `sku`, `period_start` or `observed_month`, `units_deployed` or `units_consumed` | Feeds forecast demand, VaR-95, YoY growth, confidence, and expected shortfall. |
+| Purchase orders | `sku`, `supplier_name`, `order_qty`, `order_date`, `expected_delivery_date`, `status` | Improves available-inventory and inbound-supply calculations. |
+| Supplier performance | `supplier_name`, `sku`, `on_time_rate`, `defect_rate`, `avg_delay_days`, `capacity_commitment` | Makes supplier recommendations more realistic than static capacity alone. |
+| News/risk mappings | `sku`, `supplier_name`, `region`, `search_terms`, `risk_keywords` | Helps map external news to the right components, suppliers, geographies, and facilities. |
+
+Recommended data quality:
+
+- Use stable SKU/component IDs across all tables.
+- Keep inventory snapshots daily or near-real-time for critical components.
+- Store at least 12 months of demand/deployment history; 24+ months is better
+  for YoY growth and volatility estimates.
+- Track inbound units separately from on-hand stock, and track allocated or
+  reserved units separately from free inventory.
+- Include supplier geography and qualification timeline, not just supplier name.
+- Mark synthetic/test rows clearly, e.g. `is_synthetic = true`, so demo data
+  cannot be mistaken for production data.
+
+Useful derived metrics:
+
+```text
+days_of_coverage = stock_on_hand / daily_burn_rate
+available_inventory = stock_on_hand + inbound_units - allocated_units - reserved_units
+expected_shortfall = max(0, var_95 - available_inventory)
+```
+
+For production, these tables can live in MotherDuck, a warehouse, an ERP export,
+or a data lake. The integration layer only needs to normalize them into the
+fields above before the agents run.
+
 ### Live GDELT news risk
 
 Fetch recent GDELT news for a CoreWeave demo component, score it with the
