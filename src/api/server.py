@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+load_dotenv()
 
 from ..data_sources import list_skus
 from ..db import MotherDuckStore

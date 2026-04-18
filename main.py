@@ -9,6 +9,10 @@ from __future__ import annotations
 import asyncio
 import sys
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from src.db import MotherDuckStore
 from src.orchestrator import Orchestrator
 
